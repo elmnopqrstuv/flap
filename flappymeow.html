@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <title>Flappy Bird</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #05070c;
+      touch-action: manipulation;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior: none;
+    }
+
+    body {
+      min-height: 100dvh;
+      min-width: 100vw;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .game-container {
+      position: relative;
+      width: min(100vw, 520px);
+      height: min(100dvh, 700px);
+      max-width: 100vw;
+      max-height: 100dvh;
+      overflow: hidden;
+      border: 3px solid #1a1c24;
+      border-radius: 12px;
+      background: #111318;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+    }
+
+    #flappyCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      cursor: pointer;
+      background: transparent;
+    }
+
+    #flappyOverlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.55);
+      color: #fff;
+      text-align: center;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    #flappyTitleText {
+      margin: 0 0 8px;
+      font-size: clamp(18px, 4vw, 28px);
+      text-shadow: 2px 2px 0 #000;
+      letter-spacing: 2px;
+      font-family: 'Courier New', monospace;
+    }
+
+    #flappySubText {
+      margin: 0 0 12px;
+      font-size: clamp(10px, 2.5vw, 14px);
+      text-shadow: 1px 1px 0 #000;
+      color: #ddd;
+      font-family: 'Courier New', monospace;
+    }
+
+    #flappyStartBtn {
+      pointer-events: auto;
+      padding: 8px 28px;
+      border: 2px solid #fff;
+      border-radius: 6px;
+      background: #e8b923;
+      color: #3e2723;
+      font-family: 'Courier New', monospace;
+      font-size: clamp(12px, 3vw, 16px);
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 0 #b08d1a;
+      transition: transform 0.05s, box-shadow 0.05s;
+    }
+
+    #flappyStartBtn:active {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #b08d1a;
+    }
+
+    .score-bar {
+      position: absolute;
+      top: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      z-index: 2;
+    }
+
+    .score-bar span {
+      background: rgba(0, 0, 0, 0.5);
+      color: #fff;
+      padding: 2px 10px;
+      border-radius: 4px;
+      font-size: clamp(9px, 2vw, 12px);
+      font-weight: 700;
+      text-shadow: 1px 1px 0 #000;
+      font-family: 'Courier New', monospace;
+    }
+
+    /* Portrait warning */
+    .orientation-warning {
+      display: none;
+      visibility: hidden;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: #05070c;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      padding: 32px;
+      text-align: center;
+      color: #ffffff;
+      font-family: 'Courier New', monospace;
+    }
+
+    .orientation-warning.show {
+      display: flex;
+      visibility: visible;
+    }
+
+    .orientation-warning .rotate-icon {
+      width: 80px;
+      height: 80px;
+      animation: rotatePhone 2s ease-in-out infinite;
+    }
+
+    @keyframes rotatePhone {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(90deg); }
+    }
+
+    .orientation-warning h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin: 0;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    .orientation-warning p {
+      font-size: 14px;
+      color: #a0a8b8;
+      max-width: 280px;
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    /* On small screens, show the orientation warning when in landscape
+       so portrait mode remains playable on mobile. */
+    @media screen and (orientation: landscape) and (max-width: 1024px) {
+      .orientation-warning.show {
+        display: flex;
+      }
+      .game-container {
+        display: none !important;
+      }
+    }
+  </style>
+<base target="_blank">
+</head>
+<body>
+  <!-- Portrait Orientation Warning -->
+  <div class="orientation-warning" aria-hidden="true">
+    <svg class="rotate-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="4" y="2" width="16" height="20" rx="2" ry="2"/>
+      <circle cx="12" cy="18" r="1" fill="currentColor" stroke="none"/>
+      <path d="M8 6h8"/>
+    </svg>
+    <h2>Please Rotate Your Device</h2>
+    <p>This game is best played in portrait mode. Please hold your phone vertically to continue.</p>
+  </div>
+
+  <div class="game-container">
+    <canvas id="flappyCanvas"></canvas>
+    <div id="flappyOverlay">
+      <h1 id="flappyTitleText">FLAPPY BIRD</h1>
+      <p id="flappySubText">Tap or press Space to fly</p>
+      <button id="flappyStartBtn">START</button>
+    </div>
+    <div class="score-bar">
+      <span>Score: <strong id="flappyScoreVal">0</strong></span>
+      <span>Best: <strong id="flappyBestVal">0</strong></span>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      const canvas = document.getElementById("flappyCanvas");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      // Bird image (flap.png) — placed in same folder as this HTML file
+      const birdImg = new Image();
+      birdImg.src = 'flap.png';
+      let birdImgLoaded = false;
+      let birdFrames = 1;
+      let birdFrameW = 0;
+      let birdFrameH = 0;
+      let birdFrameIndex = 0;
+      let birdAnimTick = 0;
+      const birdAnimSpeed = 6; // number of draw calls per frame
+      birdImg.onload = () => {
+        birdImgLoaded = true;
+        birdFrameH = birdImg.height;
+        if (birdImg.width > birdImg.height) {
+          birdFrames = Math.max(1, Math.round(birdImg.width / birdImg.height));
+          birdFrameW = Math.round(birdImg.width / birdFrames);
+        } else {
+          birdFrames = 1;
+          birdFrameW = birdImg.width;
+        }
+      };
+
+      // Sound effects (use meow-1.mp3 and the splat file found in project)
+      const sndFlap = new Audio('sfx_wing.mp3');
+      sndFlap.preload = 'auto';
+      sndFlap.volume = 0.4;
+      const sndDie = new Audio('splat-sound-effect-free-download.mp3');
+      sndDie.preload = 'auto';
+      sndDie.volume = 0.9;
+      // Special death sound file present in project
+      const sndAllahu = new Audio('allahu-akbar_NqRd8Af.mp3');
+      sndAllahu.preload = 'auto';
+      sndAllahu.volume = 0.95;
+      // Scoring sound
+      const sndTaDa = new Audio('super-mario-coin-sound.mp3');
+      sndTaDa.preload = 'auto';
+      sndTaDa.volume = 0.7;
+      // Additional score-triggered sounds
+      const sndWeAreCharlie = new Audio('we-are-charlie-kirk-song.mp3');
+      sndWeAreCharlie.preload = 'auto';
+      sndWeAreCharlie.volume = 0.9;
+      const sndAtrocious = new Audio('atrocious-sound.mp3');
+      sndAtrocious.preload = 'auto';
+      sndAtrocious.volume = 0.85;
+      const sndHiBby = new Audio('hi-bby-boy-toni-fowler.mp3');
+      sndHiBby.preload = 'auto';
+      sndHiBby.volume = 0.85;
+
+      function playSound(s) {
+        if (!s) return;
+        try { s.currentTime = 0; } catch (e) {}
+        const p = s.play();
+        if (p && p.catch) p.catch(() => {});
+      }
+      const overlay = document.getElementById("flappyOverlay");
+      const titleText = document.getElementById("flappyTitleText");
+      const subText = document.getElementById("flappySubText");
+      const startBtn = document.getElementById("flappyStartBtn");
+      const scoreEl = document.getElementById("flappyScoreVal");
+      const bestEl = document.getElementById("flappyBestVal");
+
+      let W = 320;
+      let H = 480;
+      let GRAVITY = 0.25;
+      let JUMP = -4.6;
+      let BIRD_X = 60;
+      let BIRD_R = 10;
+
+      let bird = { y: H / 2, vy: 0, rot: 0 };
+      let pipes = [];
+      let score = 0;
+      let best = 0;
+      let frame = 0;
+      let state = "menu";
+      let groundOff = 0;
+      let pipeSpeed = 1.5;
+      let pipeGap = 145;
+
+      try { best = parseInt(localStorage.getItem("flappy_best") || "0"); } catch (e) {}
+      bestEl.textContent = best;
+
+      function syncCanvasSize() {
+        const container = canvas.parentElement;
+        const rect = container.getBoundingClientRect();
+        const width = Math.max(220, Math.round(rect.width || 320));
+        const height = Math.max(320, Math.round(rect.height || 480));
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        W = width;
+        H = height;
+        GRAVITY = H * 0.00052;
+        JUMP = -H * 0.0096;
+        BIRD_X = Math.max(48, Math.round(W * 0.19));
+        BIRD_R = Math.max(8, Math.round(W * 0.034));
+        pipeSpeed = Math.max(1.2, W * 0.0047);
+        pipeGap = Math.max(Math.round(H * 0.24), Math.round(H * 0.3));
+
+        reset();
+      }
+
+      function reset() {
+        bird = { y: H / 2, vy: 0, rot: 0 };
+        pipes = [];
+        score = 0;
+        frame = 0;
+        groundOff = 0;
+        scoreEl.textContent = "0";
+      }
+
+      function spawnPipe() {
+        const minH = Math.max(32, Math.round(H * 0.1));
+        const maxH = H - pipeGap - minH - Math.max(40, Math.round(H * 0.13));
+        const topH = Math.floor(Math.random() * (maxH - minH) + minH);
+        pipes.push({ x: W, topH, passed: false });
+      }
+
+      function updateDiff() {
+        const t = Math.min(score, 100);
+        pipeSpeed = Math.max(1.2, W * 0.0047 + t * (W * 0.00012));
+        pipeGap = Math.max(Math.round(H * 0.24), Math.round(H * 0.3 - t * 0.8));
+      }
+
+      function jump() {
+        if (state === "menu") { start(); playSound(sndFlap); return; }
+        if (state === "gameover") return;
+        bird.vy = JUMP;
+        playSound(sndFlap);
+      }
+
+      function start() {
+        if (state === "playing") return;
+        reset();
+        state = "playing";
+        overlay.style.opacity = "0";
+        overlay.style.pointerEvents = "none";
+      }
+
+      function die() {
+        state = "gameover";
+        // Play special sound when dying with score 9 or 11, otherwise regular die sound
+        if (score === 9 || score === 11) {
+          playSound(sndAllahu);
+        } else {
+          playSound(sndDie);
+        }
+        if (score > best) {
+          best = score;
+          try { localStorage.setItem("flappy_best", String(best)); } catch (e) {}
+          bestEl.textContent = best;
+        }
+        titleText.textContent = "GAME OVER";
+        subText.textContent = "Score: " + score + "  |  Best: " + best;
+        startBtn.textContent = "RETRY";
+        overlay.style.opacity = "1";
+        overlay.style.pointerEvents = "auto";
+      }
+
+      function circRect(cx, cy, cr, rx, ry, rw, rh) {
+        const cx2 = Math.max(rx, Math.min(cx, rx + rw));
+        const cy2 = Math.max(ry, Math.min(cy, ry + rh));
+        const dx = cx - cx2, dy = cy - cy2;
+        return (dx * dx + dy * dy) < (cr * cr);
+      }
+
+      function update() {
+        if (state !== "playing") return;
+        frame++;
+
+        bird.vy += GRAVITY;
+        bird.y += bird.vy;
+        bird.rot = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, bird.vy * 0.1));
+
+        if (bird.y + BIRD_R > H - 30) { bird.y = H - 30 - BIRD_R; die(); return; }
+        if (bird.y - BIRD_R < 0) { bird.y = BIRD_R; bird.vy = 0; }
+
+        const spawnRate = Math.max(80, Math.round(160 - score * 1.2));
+        if (frame % Math.floor(spawnRate) === 0) spawnPipe();
+
+        for (let i = pipes.length - 1; i >= 0; i--) {
+          const p = pipes[i];
+          p.x -= pipeSpeed;
+
+          if (!p.passed && p.x + 40 < BIRD_X) {
+            p.passed = true;
+            score++;
+            scoreEl.textContent = score;
+            updateDiff();
+            playSound(sndTaDa);
+            // Play special sounds on certain scores
+            if (score === 18) playSound(sndWeAreCharlie);
+            if (score === 30) playSound(sndAtrocious);
+            if (score === 45) playSound(sndHiBby);
+          }
+
+          if (p.x + 40 < 0) { pipes.splice(i, 1); continue; }
+
+          if (circRect(BIRD_X, bird.y, BIRD_R, p.x, 0, 40, p.topH)) { die(); return; }
+          const by = p.topH + pipeGap;
+          if (circRect(BIRD_X, bird.y, BIRD_R, p.x, by, 40, H - by - 30)) { die(); return; }
+        }
+
+        groundOff = (groundOff - pipeSpeed) % 20;
+      }
+
+      function drawCloud(x, y) {
+        if (x < -60 || x > W + 60) return;
+        ctx.fillStyle = "rgba(255,255,255,0.55)";
+        ctx.fillRect(x, y, 30, 16);
+        ctx.fillRect(x + 10, y - 10, 24, 14);
+        ctx.fillRect(x + 24, y, 28, 16);
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+        ctx.fillStyle = "#70c5ce";
+        ctx.fillRect(0, 0, W, H);
+
+        const co = (frame * 0.3) % (W + 100);
+        drawCloud(80 - co, 55);
+        drawCloud(220 - co + 400, 85);
+        drawCloud(350 - co + 200, 45);
+
+        ctx.fillStyle = "#73bf2e";
+        ctx.strokeStyle = "#558c22";
+        ctx.lineWidth = Math.max(1.5, W * 0.006);
+        for (const p of pipes) {
+          ctx.fillRect(p.x, 0, 40, p.topH);
+          ctx.strokeRect(p.x, 0, 40, p.topH);
+          ctx.fillRect(p.x - 2, p.topH - 20, 44, 20);
+          ctx.strokeRect(p.x - 2, p.topH - 20, 44, 20);
+
+          const by = p.topH + pipeGap;
+          ctx.fillRect(p.x, by, 40, H - by - 30);
+          ctx.strokeRect(p.x, by, 40, H - by - 30);
+          ctx.fillRect(p.x - 2, by, 44, 20);
+          ctx.strokeRect(p.x - 2, by, 44, 20);
+        }
+
+        ctx.fillStyle = "#ded895";
+        ctx.fillRect(0, H - 30, W, 30);
+        ctx.fillStyle = "#d4c86a";
+        for (let i = 0; i < W + 20; i += 20) ctx.fillRect(i + groundOff, H - 30, 2, 30);
+        ctx.strokeStyle = "#5c4d3c";
+        ctx.lineWidth = Math.max(2, W * 0.008);
+        ctx.beginPath();
+        ctx.moveTo(0, H - 30);
+        ctx.lineTo(W, H - 30);
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(BIRD_X, bird.y);
+        ctx.rotate(bird.rot);
+
+        // Draw bird image when loaded (supports sprite-sheet frames), otherwise fallback to drawn bird
+        if (birdImgLoaded) {
+          ctx.imageSmoothingEnabled = false;
+          birdAnimTick++;
+          birdFrameIndex = Math.floor(birdAnimTick / birdAnimSpeed) % birdFrames;
+          const srcX = birdFrameIndex * birdFrameW;
+          const srcY = 0;
+          const srcW = birdFrameW;
+          const srcH = birdFrameH || srcW;
+          const drawH = BIRD_R * 2;
+          const drawW = drawH * (srcW / srcH);
+          ctx.drawImage(birdImg, srcX, srcY, srcW, srcH, -drawW / 2, -drawH / 2, drawW, drawH);
+        } else {
+          // Fallback: Draw bird as a yellow circle with beak and eye
+          ctx.fillStyle = "#f4d03f";
+          ctx.beginPath();
+          ctx.arc(0, 0, BIRD_R, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Beak
+          ctx.fillStyle = "#e67e22";
+          ctx.beginPath();
+          ctx.moveTo(BIRD_R - 2, -3);
+          ctx.lineTo(BIRD_R + 8, 0);
+          ctx.lineTo(BIRD_R - 2, 3);
+          ctx.fill();
+
+          // Eye
+          ctx.fillStyle = "#fff";
+          ctx.beginPath();
+          ctx.arc(4, -4, BIRD_R * 0.35, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#000";
+          ctx.beginPath();
+          ctx.arc(5, -4, BIRD_R * 0.18, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Wing
+          ctx.fillStyle = "#f1c40f";
+          ctx.beginPath();
+          ctx.ellipse(-2, 4, BIRD_R * 0.6, BIRD_R * 0.35, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.restore();
+
+        if (state === "playing") {
+          ctx.fillStyle = "#fff";
+          ctx.strokeStyle = "#000";
+          ctx.lineWidth = Math.max(2, W * 0.008);
+          ctx.font = `bold ${Math.max(24, Math.round(W * 0.11))}px "Courier New", monospace`;
+          ctx.textAlign = "center";
+          ctx.strokeText(score, W / 2, Math.max(40, H * 0.12));
+          ctx.fillText(score, W / 2, Math.max(40, H * 0.12));
+        }
+      }
+
+      function loop() {
+        update();
+        draw();
+        requestAnimationFrame(loop);
+      }
+
+      // Controls
+      canvas.addEventListener("mousedown", e => { e.preventDefault(); e.stopPropagation(); jump(); });
+      canvas.addEventListener("touchstart", e => { e.preventDefault(); e.stopPropagation(); jump(); }, { passive: false });
+      startBtn.addEventListener("click", e => { e.stopPropagation(); start(); });
+      startBtn.addEventListener("touchstart", e => { e.stopPropagation(); });
+      canvas.addEventListener("touchmove", e => { e.stopPropagation(); }, { passive: false });
+
+      // Keyboard controls
+      window.addEventListener("keydown", e => {
+        if (e.code === "Space" || e.code === "ArrowUp" || e.key === "w" || e.key === "W") {
+          e.preventDefault();
+          jump();
+        }
+      });
+
+      // Orientation warning
+      function updateOrientationWarning() {
+        const warning = document.querySelector(".orientation-warning");
+        const isPortrait = window.matchMedia("(orientation: portrait)").matches;
+        const isSmallScreen = window.innerWidth <= 1024;
+        if (!warning) return;
+        // Show warning when in landscape on small screens (ask user to rotate to portrait)
+        const shouldShow = !isPortrait && isSmallScreen;
+        warning.classList.toggle("show", shouldShow);
+        warning.setAttribute("aria-hidden", shouldShow ? "false" : "true");
+      }
+
+      updateOrientationWarning();
+      window.addEventListener("resize", () => {
+        syncCanvasSize();
+        updateOrientationWarning();
+      });
+      window.addEventListener("orientationchange", updateOrientationWarning);
+      if (window.matchMedia) {
+        window.matchMedia("(orientation: portrait)").addEventListener("change", updateOrientationWarning);
+        window.matchMedia("(orientation: landscape)").addEventListener("change", updateOrientationWarning);
+      }
+
+      syncCanvasSize();
+      loop();
+    })();
+  </script>
+</body>
+</html>
